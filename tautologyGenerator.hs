@@ -76,12 +76,14 @@ p5 = Equi (Or (Var 'p') (Var 'q')) (And (Var 'p') (Var 'q'))
 
 p6 :: Prop
 p6 = Equi (Or (Var 'p') (Var 'q')) (Not (And (Not (Var 'p')) (Not (Var 'q'))))
--- #(|(p)(q))(~&(~p)(~q))
+-- #(|(p)(q))(~(&(~(p))(~(q))))
 
 string2Prop :: [Char] -> Prop
 string2Prop (x:rest)   | x == 'p' = Var 'p'
                        | x == 'q' = Var 'q'
-                       | x == '~' = Not (string2Prop rest)
+                       | x == '~' = 
+                         let p = splitNot rest 0 []
+                         in Not (string2Prop p)
                        | x == '&' = 
                          let (p, q) = splitArr rest
                          in And (string2Prop p) (string2Prop q)
@@ -94,6 +96,13 @@ string2Prop (x:rest)   | x == 'p' = Var 'p'
                        | x == '#' = 
                          let (p, q) = splitArr rest
                          in Equi (string2Prop p) (string2Prop q)
+
+splitNot :: [Char] -> Int -> [Char] -> [Char]
+splitNot [] _ arr = tail ( init (reverse arr))
+splitNot (elem:rest) n arr | elem == '(' = splitNot rest (n + 1) (elem:arr)
+                           | elem == ')' && n - 1 == 0 = splitNot [] n (elem:arr)
+                           | elem == ')' = splitNot rest (n - 1) (elem:arr)
+                           | otherwise = splitNot rest n (elem:arr)
 
 splitArr :: [Char] -> ([Char], [Char])
 splitArr str =  split str False 0 [] []
@@ -108,6 +117,45 @@ split (elem:list) False n firstArr secArr | elem == '(' = split list False (n + 
                                           | elem == ')' && n - 1 == 0 = split list True (n - 1) (elem:firstArr) secArr
                                           | otherwise = split list False n (elem:firstArr) secArr
 
+checkStr :: [Char] -> Bool
+checkStr (x:rest) | isBinOp x = 
+                      let (p, q) = splitArr rest
+                      in checkStr p && checkStr q
+                  | isUnOp x = 
+                      let (p, q) = removeBrack rest
+                      in if q == True then checkStr p else False
+                  | isVar x = True
+                  | otherwise = False
+
+removeBrack :: [Char] -> ([Char], Bool)
+removeBrack str = if head str == '(' && last str == ')' && tail ( init str) /= [] then (tail ( init str), True) else ([], False)
+
+checkSplit :: [Char] -> Bool -> Int ->[Char] -> [Char] -> ([Char], [Char])
+checkSplit [] first n firstArr secArr =   (tail ( init (reverse firstArr)), tail ( init (reverse secArr)))
+checkSplit (elem:list) True n firstArr secArr | elem == '(' = split list True (n + 1) firstArr (elem:secArr)
+                                         | elem == ')' = split list True (n - 1) firstArr (elem:secArr)
+                                         | otherwise   = split list True n firstArr (elem:secArr)
+checkSplit (elem:list) False n firstArr secArr | elem == '(' = split list False (n + 1) (elem:firstArr) secArr
+                                          | elem == ')' && n - 1 > 0 = split list False (n - 1) (elem:firstArr) secArr
+                                          | elem == ')' && n - 1 == 0 = split list True (n - 1) (elem:firstArr) secArr
+                                          | otherwise = split list False n (elem:firstArr) secArr
+
+isBinOp :: Char ->   Bool
+isBinOp '&' = True
+isBinOp '|' = True
+isBinOp '>' = True
+isBinOp '#' = True
+isBinOp _ = False
+
+isUnOp :: Char -> Bool
+isUnOp '~' = True
+isUnOp _ = False
+
+isVar :: Char -> Bool
+isVar 'p' = True
+isVar 'q' = True
+isVar _ = False
+
 powerset :: [a] -> [[a]]
 powerset [] = [[]]
 powerset (x:xs) = [x:ps | ps <- powerset xs] ++ powerset xs
@@ -115,3 +163,8 @@ powerset (x:xs) = [x:ps | ps <- powerset xs] ++ powerset xs
 samples :: Int -> [a] -> [[a]]
 samples 0 _ = [[]]
 samples n xs = [ p : ps | p <- xs, ps <- samples (n - 1) xs]
+
+--  genPossibleTaut :: Int -> [[Char]]
+--genPossibleTaut n = 
+
+--cd Desktop/funkcyjne/projek
