@@ -1,5 +1,5 @@
-.txt
-.hi
-.o
-.exe
+*.txt
+*.hi
+*.o
+*.exe
 tautologyGenerator.hs
