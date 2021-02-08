@@ -15,40 +15,40 @@ instance Show Prop where
   show (Not p) = "~"++ right
     where right = if rightNeedParen then "("++show p++")" else show p
           rightNeedParen = rightPrec <= opPrec
-          rightPrec = precedence p
-          opPrec    = precedence (Not p) --bylo Var 'c'
+          rightPrec = priority p
+          opPrec    = priority (Not p)
   show (And l r) = left ++"&"++ right
     where left  = if leftNeedParen then "(" ++ show l ++ ")" else show l
           right = if rightNeedParen then "(" ++ show r ++ ")" else show r
           leftNeedParen = (leftPrec < opPrec)  || ((leftPrec == opPrec) && not (isAnd l))
           rightNeedParen = (rightPrec < opPrec ) || ((rightPrec == opPrec) && not (isAnd r))
-          leftPrec  = precedence l
-          rightPrec = precedence r
-          opPrec    = precedence (And l r)
+          leftPrec  = priority l
+          rightPrec = priority r
+          opPrec    = priority (And l r)
   show (Or l r) = left ++"|"++ right
     where left  = if leftNeedParen then "(" ++ show l ++ ")" else show l
           right = if rightNeedParen then "(" ++ show r ++ ")" else show r
           leftNeedParen = (leftPrec < opPrec) || ((leftPrec == opPrec) && not (isOr l))
           rightNeedParen = (rightPrec < opPrec) || ((rightPrec == opPrec) && not (isOr r))
-          leftPrec  = precedence l
-          rightPrec = precedence r
-          opPrec    = precedence (Or l r)
+          leftPrec  = priority l
+          rightPrec = priority r
+          opPrec    = priority (Or l r)
   show (Imply l r) = left ++">"++ right
     where left  = if leftNeedParen then "(" ++ show l ++ ")" else show l
           right = if rightNeedParen then "(" ++ show r ++ ")" else show r
           leftNeedParen = leftPrec < opPrec || ((leftPrec == opPrec) && not (isImply l))
           rightNeedParen = rightPrec < opPrec || ((rightPrec == opPrec) && not (isImply r))
-          leftPrec  = precedence l
-          rightPrec = precedence r
-          opPrec    = precedence (Imply l r)
+          leftPrec  = priority l
+          rightPrec = priority r
+          opPrec    = priority (Imply l r)
   show (Equi l r) = left ++"#"++ right
     where left  = if leftNeedParen then "(" ++ show l ++ ")" else show l
           right = if rightNeedParen then "(" ++ show r ++ ")" else show r
           leftNeedParen = leftPrec < opPrec || ((leftPrec == opPrec) && not (isEqui l))
           rightNeedParen = rightPrec < opPrec || ((rightPrec == opPrec) && not (isEqui r))
-          leftPrec  = precedence l
-          rightPrec = precedence r
-          opPrec    = precedence (Equi l r)
+          leftPrec  = priority l
+          rightPrec = priority r
+          opPrec    = priority (Equi l r)
 
 isAnd :: Prop -> Bool
 isAnd (And _ _) = True
@@ -66,54 +66,54 @@ isEqui :: Prop -> Bool
 isEqui (Equi _ _) = True
 isEqui _ = False
 
-precedence :: Prop -> Int
-precedence (Var _) = 3
-precedence (Not _) = 2
-precedence (Imply _ _) = 1
-precedence (Equi _ _) = 1
-precedence (And _ _) = 1
-precedence (Or _ _) = 1
+priority :: Prop -> Int
+priority (Var _) = 3
+priority (Not _) = 2
+priority (Imply _ _) = 1
+priority (Equi _ _) = 1
+priority (And _ _) = 1
+priority (Or _ _) = 1
 
-type Subst = Assoc Char Bool
+type Substitution = Pair Char Bool
 
-type Assoc k v = [(k,v)]
+type Pair var value = [(var,value)]
 
-find :: Eq k => k -> Assoc k v -> v
+find :: Eq k => k -> Pair k v -> v
 find k t =  head [v | (k',v) <- t, k == k']
 
-eval :: Subst -> Prop -> Bool
-eval _ (Const b)   =  b
-eval s (Var x)     =  find x s
-eval s (Not p)     =  not (eval s p)
-eval s (And p q)   =  eval s p && eval s q
-eval s (Or p q)    =  eval s p || eval s q
-eval s (Imply p q) =  eval s p <= eval s q
-eval s (Equi p q)  =  eval s p == eval s q
+evaluate :: Substitution -> Prop -> Bool
+evaluate _ (Const b)   =  b
+evaluate s (Var x)     =  find x s
+evaluate s (Not p)     =  not (evaluate s p)
+evaluate s (And p q)   =  evaluate s p && evaluate s q
+evaluate s (Or p q)    =  evaluate s p || evaluate s q
+evaluate s (Imply p q) =  evaluate s p <= evaluate s q
+evaluate s (Equi p q)  =  evaluate s p == evaluate s q
 
-vars :: Prop -> [Char]
-vars (Const _)   = []
-vars (Var x)     = [x]
-vars (Not p)     = vars p
-vars (And p q)   = vars p ++ vars q
-vars (Or p q)    = vars p ++ vars q
-vars (Imply p q) = vars p ++ vars q
-vars (Equi p q)  = vars p ++ vars q
+variables :: Prop -> [Char]
+variables (Const _)   = []
+variables (Var x)     = [x]
+variables (Not p)     = variables p
+variables (And p q)   = variables p ++ variables q
+variables (Or p q)    = variables p ++ variables q
+variables (Imply p q) = variables p ++ variables q
+variables (Equi p q)  = variables p ++ variables q
 
 bools :: Int -> [[Bool]]
 bools 0 =  [[]]
 bools n =  map (False:) bss ++ map (True:) bss
             where bss = bools (n-1)
 
-rmdups :: Eq a => [a] -> [a]
-rmdups [] =  []
-rmdups (x:xs) =  x : rmdups (filter (/= x) xs)
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates [] =  []
+removeDuplicates (x:xs) =  x : removeDuplicates (filter (/= x) xs)
 
-substs :: Prop -> [Subst]
-substs p =  map (zip vs) (bools (length vs))
-                                 where vs = rmdups (vars p)
+substs :: Prop -> [Substitution]
+substs p =  map (zip vars) (bools (length vars))
+                                 where vars = removeDuplicates (variables p)
 
-isTaut :: Prop -> Bool
-isTaut p =  and [eval s p | s <- substs p]
+isTautology :: Prop -> Bool
+isTautology p =  and [evaluate s p | s <- substs p]
 
 string2Prop :: [Char] -> [Prop] -> Prop
 string2Prop [] subProps = head subProps
@@ -145,45 +145,46 @@ checkStr (elem:rest) checkList | elem == 'p' || elem == 'q' = checkStr rest (ele
                                | elem == '&' || elem == '|' ||
                                  elem == '>' || elem == '#' = length checkList >= 2 && checkStr rest (tail checkList)
 
-checkset :: [Char] -> Int -> Int -> Int -> Bool
-checkset [] operandp operandq operators =  operandp + operandq <= operators + 1 && ((operandq > 0 && operandp > 0) || (operandq == 0 && operandp > 0))
-checkset (elem:rest) operandp operandq operators | elem == 'p' = checkset rest (operandp + 1) operandq operators
-                                                 | elem == 'q' = checkset rest operandp (operandq + 1) operators
-                                                 | elem == '~' = checkset rest operandp operandq operators
-                                                 | elem == '&' || elem == '|' ||
-                                                   elem == '>' || elem == '#' = checkset rest operandp operandq (operators + 1)
-
 powerset :: [a] -> [[a]]
 powerset [] = [[]]
 powerset (x:xs) = [x:ps | ps <- powerset xs] ++ powerset xs
 
-genPowerset :: [[Char]]
-genPowerset = reverse [l | l <- powerset "pq~&|>#", checkset l 0 0 0]
-
+--complexity = length list ^ n
 samples :: Int -> [a] -> [[a]]
 samples 0 _ = [[]]
 samples n xs = [ p : ps | p <- xs, ps <- samples (n - 1) xs]
 
-unique :: Eq a => [a] -> [a]
+changeVar :: [Char] -> [Char]
+changeVar [] = []
+changeVar (elem:rest) | elem == 'p' = 'q' : changeVar rest 
+                      | elem == 'q' = 'p' : changeVar rest
+                      | otherwise  = elem : changeVar rest
+
+unique :: [[Char]] -> [[Char]]
 unique [] = []
-unique (x:xs) = x:unique (filter (x /=) xs)
+unique (x:xs) = x:unique (filter (\elem -> x /= elem && elem /= changeVar x) xs)
 
 genTaut :: Int-> [[Char]]
-genTaut n = unique [props | y<- [1..n], z <- powerset "pq~&|>#", props <- filter (\q -> checkStr q [] && isTaut (string2Prop q [])) (samples y z)]
+genTaut n = unique [props | y<- [1..n], 
+                            z <- powerset "pq~&|>#", --genPowerset 
+                            props <- filter (\q -> checkStr q [] && isTautology (string2Prop q [])) (samples y z)]
 
-genAllTaut :: Int -> Handle -> IO()
-genAllTaut n file = do
-                     mapM (\x -> hPutStrLn file (show x)) (gen (genTaut n) [] n)
-                     return ()
+uniqueProps :: [Prop] -> [Prop]
+uniqueProps [] = []
+uniqueProps (x:xs) = x:uniqueProps (filter (\elem -> show x /= show elem) xs)
 
 gen :: [[Char]] -> [Prop] -> Int -> [Prop]
-gen [] list n = list
+gen [] list n = uniqueProps list
 gen (x:rest) list n = let prop = string2Prop x []
                       in if length (show prop) <= n
                            then 
                              gen rest (list ++ [prop]) n
                          else
                              gen rest list n       
+
+genAllTaut :: Int -> Handle -> IO()
+genAllTaut n file = do
+                     mapM_ (hPrint file) (gen (genTaut n) [] n)
 
 main :: IO ()
 main = do
@@ -192,6 +193,4 @@ main = do
            let n = read firstArg :: Int
            genAllTaut n fileHandle
            hClose fileHandle
-           putStrLn "Generation completed"
-
---cd Desktop/funkcyjne/projekt
+           putStrLn $ "Generation completed for n = " ++ show n
