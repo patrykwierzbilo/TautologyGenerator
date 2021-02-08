@@ -12,7 +12,7 @@ Logical expressions support the following operators:
 |:----------------------|:--------------:|
 | Negation              | !              |
 | And                   | &              |
-| Or                    | |              |
+| Or                    | \|             |
 | Implication           | >              |
 | Equality              | #              |
 
